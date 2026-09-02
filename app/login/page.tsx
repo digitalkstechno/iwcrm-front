@@ -15,8 +15,8 @@ export default function LoginPage() {
 
   // Auto-login on first visit
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
-    if (isAuthenticated) {
+    const token = localStorage.getItem('worldtoken');
+    if (token) {
       setIsAutoLogin(true);
       setTimeout(() => {
         router.push('/dashboard');
@@ -43,6 +43,9 @@ export default function LoginPage() {
       // Store login state and token
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('userEmail', email);
+
+      const staffName = res?.data?.fullName || res?.data?.data?.fullName || 'User';
+      localStorage.setItem('userName', staffName);
       
       // The token might be nested, so we check multiple possible paths
       const token = 

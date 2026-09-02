@@ -299,7 +299,6 @@ export const LeadsView: React.FC = () => {
           setSearchTerm(term);
           setCurrentPage(1);
         }}
-        onRowClick={(lead) => setOpenModal('lead_detail', lead)}
         actions={actions}
         pagination={{
           currentPage,

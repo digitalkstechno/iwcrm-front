@@ -16,9 +16,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    const token = localStorage.getItem('worldtoken');
     
-    if (!isAuthenticated) {
+    if (!token) {
       router.push('/login');
     } else {
       setIsAuthorized(true);
