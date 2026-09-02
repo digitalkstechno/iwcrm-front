@@ -2,16 +2,16 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Nexus CRM - Enterprise Suite',
+  title: 'invisibleworld  CRM - Enterprise Suite',
   description: 'Modern B2B SaaS CRM Enterprise Suite for managing Leads, Dealers, and Staff with analytics, conversion pipelines, and reporting.',
   openGraph: {
-    title: 'Nexus CRM - Enterprise Suite',
+    title: 'invisibleworld CRM - Enterprise Suite',
     description: 'Modern B2B SaaS CRM Enterprise Suite for managing Leads, Dealers, and Staff with analytics, conversion pipelines, and reporting.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nexus CRM - Enterprise Suite',
+    title: 'invisibleworld CRM - Enterprise Suite',
     description: 'Modern B2B SaaS CRM Enterprise Suite for managing Leads, Dealers, and Staff with analytics, conversion pipelines, and reporting.',
   },
 };

@@ -1,5 +1,5 @@
 {
-  "name": "Nexus CRM",
+  "name": "invisibleworld CRM",
   "description": "Modern B2B SaaS CRM Enterprise Suite for managing Leads, Dealers, and Staff with analytics, conversion pipelines, and reporting.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

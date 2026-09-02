@@ -20,6 +20,7 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_SETTINGS,
 } from './initial-data';
+import api from './axios';
 import confetti from 'canvas-confetti';
 
 interface Toast {
@@ -193,6 +194,25 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStaff(data);
     try { localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(data)); } catch (e) {}
   }, []);
+
+  // Fetch data from API using Axios on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [leadsData, dealersData, staffData] = await Promise.all([
+          api.get('/api/leads').catch(() => null),
+          api.get('/api/dealers').catch(() => null),
+          api.get('/api/staff').catch(() => null)
+        ]);
+        if (leadsData && Array.isArray(leadsData)) saveLeads(leadsData);
+        if (dealersData && Array.isArray(dealersData)) saveDealers(dealersData);
+        if (staffData && Array.isArray(staffData)) saveStaff(staffData);
+      } catch (error) {
+        console.error('Failed to fetch initial CRM data:', error);
+      }
+    };
+    fetchData();
+  }, [saveLeads, saveDealers, saveStaff]);
 
   const saveActivities = useCallback((data: ActivityItem[]) => {
     setActivities(data);

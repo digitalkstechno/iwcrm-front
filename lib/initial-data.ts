@@ -812,7 +812,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 
 export const INITIAL_SETTINGS: CRMSettings = {
   company: {
-    name: 'Nexus CRM',
+    name: 'invisibleworld CRM',
     tagline: 'Enterprise Suite for B2B Dealers & Lead Management',
     email: 'support@nexuscrm-enterprise.com',
     phone: '+1 (800) 555-0199',
