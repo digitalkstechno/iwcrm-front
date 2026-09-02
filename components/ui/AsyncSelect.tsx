@@ -65,7 +65,7 @@ export const AsyncSelect: React.FC<AsyncSelectProps> = ({
         params: { page, limit: 15, search: debouncedSearch },
       });
 
-      let newItems = [];
+      let newItems: any[] = [];
       let totalPages = 1;
 
       if (res?.data?.data) {

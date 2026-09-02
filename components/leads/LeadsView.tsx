@@ -54,7 +54,7 @@ export const LeadsView: React.FC = () => {
         },
       });
 
-      let leadArray = [];
+      let leadArray: any[] = [];
       let total = 0;
       let pages = 1;
 
