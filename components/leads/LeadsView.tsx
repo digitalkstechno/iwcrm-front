@@ -1,120 +1,126 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { Lead, LeadStatus, LeadPriority } from '@/lib/types';
 import { StatusBadge, PriorityBadge } from '@/components/ui/StatusBadge';
 import { CommonTable, Column } from '@/components/ui/CommonTable';
-import {
-  ArrowUpDown,
-  Download,
-  Plus,
-  Filter,
-  Check,
-  MoreHorizontal,
-  UserCheck,
-  Trash2,
-} from 'lucide-react';
+import { Download, Plus, MoreHorizontal, UserCheck, Trash2, Edit2 } from 'lucide-react';
+import api from '@/lib/axios';
+
+export interface BackendLead {
+  _id: string;
+  contactName: string;
+  companyName: string;
+  phone: string;
+  email: string;
+  pipelineStatus: string;
+  priority: string;
+  city: string;
+  staff?: { _id: string; fullName: string; email: string };
+  dealer?: { _id: string; DealerName: string; Phone: string };
+  createdAt?: string;
+}
 
 export const LeadsView: React.FC = () => {
-  const {
-    leads,
-    setOpenModal,
-    deleteLead,
-    updateLead,
-    showToast,
-    showConfirmDialog,
-  } = useCRM();
+  const { setOpenModal, openModal, showToast, showConfirmDialog } = useCRM();
 
-  // Filters & State
+  const [leadList, setLeadList] = useState<BackendLead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [sourceFilter, setSourceFilter] = useState<string>('All');
-  const [priorityFilter, setPriorityFilter] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name' | 'priority' | 'value'>('date-desc');
-  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [statusFilter, setStatusFilter] = useState('All');
 
-  // Filtered Leads
-  const filteredLeads = useMemo(() => {
-    return leads.filter((l) => {
-      const matchSearch =
-        searchTerm === '' ||
-        l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.leadCode.toLowerCase().includes(searchTerm.toLowerCase());
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-      const matchStatus = statusFilter === 'All' || l.status === statusFilter;
-      const matchSource = sourceFilter === 'All' || l.source === sourceFilter;
-      const matchPriority = priorityFilter === 'All' || l.priority === priorityFilter;
+  const fetchLeadData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/v1/api/lead', {
+        params: {
+          page: currentPage,
+          limit: itemsPerPage,
+          search: debouncedSearch,
+        },
+      });
 
-      return matchSearch && matchStatus && matchSource && matchPriority;
-    }).sort((a, b) => {
-      if (sortBy === 'date-desc') return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime();
-      if (sortBy === 'date-asc') return new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime();
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      if (sortBy === 'priority') {
-        const priorityOrder: Record<LeadPriority, number> = { Urgent: 4, High: 3, Medium: 2, Low: 1 };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      let leadArray = [];
+      let total = 0;
+      let pages = 1;
+
+      if (Array.isArray(res)) {
+        leadArray = res;
+        total = res.length;
+      } else if (res && res.data && Array.isArray(res.data)) {
+        leadArray = res.data;
+        total = (res as any).pagination?.totalRecords || leadArray.length;
+        pages = (res as any).pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
+      } else if (res && Array.isArray(res.data?.data)) {
+        leadArray = res.data.data;
+        total = res.data.pagination?.totalRecords || leadArray.length;
+        pages = res.data.pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
       }
-      if (sortBy === 'value') return (b.estimatedValue || 0) - (a.estimatedValue || 0);
-      return 0;
-    });
-  }, [leads, searchTerm, statusFilter, sourceFilter, priorityFilter, sortBy]);
 
-  // Pagination calculation
-  const totalResults = 1284 + (filteredLeads.length - 7);
-  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / itemsPerPage));
-  const displayedLeads = filteredLeads.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+      if (statusFilter !== 'All') {
+        leadArray = leadArray.filter((l: BackendLead) => l.pipelineStatus.toLowerCase() === statusFilter.toLowerCase());
+      }
 
-  // Checkbox selection
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedLeadIds(displayedLeads.map((l) => l.id));
-    } else {
-      setSelectedLeadIds([]);
+      setLeadList(leadArray);
+      setTotalPages(pages);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error('Failed to fetch leads:', err);
+      showToast({ type: 'error', title: 'Error', message: 'Failed to fetch lead data' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleToggleSelect = (id: string) => {
-    setSelectedLeadIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+  useEffect(() => {
+    if (!openModal) {
+      fetchLeadData();
+    }
+  }, [currentPage, debouncedSearch, statusFilter, itemsPerPage, openModal]);
+
+  const handleDelete = async (id: string, name: string) => {
+    showConfirmDialog(
+      'Delete Lead',
+      `Are you sure you want to delete lead ${name}?`,
+      async () => {
+        try {
+          await api.delete(`/v1/api/lead/${id}`);
+          showToast({ type: 'success', title: 'Deleted', message: `${name} has been removed.` });
+          fetchLeadData();
+        } catch (err: any) {
+          console.error('Failed to delete lead:', err);
+          showToast({ type: 'error', title: 'Error', message: err.response?.data?.message || 'Failed to delete lead' });
+        }
+      }
     );
   };
 
-  // Bulk actions
-  const handleBulkDelete = () => {
-    showConfirmDialog('Bulk Delete', `Are you sure you want to delete ${selectedLeadIds.length} selected leads?`, () => {
-      selectedLeadIds.forEach((id) => deleteLead(id));
-      setSelectedLeadIds([]);
-      showToast({ type: 'warning', title: 'Bulk Delete', message: 'Selected leads have been removed.' });
-    });
-  };
-
-  const handleBulkStatus = (status: LeadStatus) => {
-    selectedLeadIds.forEach((id) => updateLead(id, { status }));
-    setSelectedLeadIds([]);
-    showToast({ type: 'success', title: 'Status Updated', message: `Updated ${selectedLeadIds.length} leads to ${status}.` });
-  };
-
   const handleExportCSV = () => {
-    const headers = ['Lead Code', 'Name', 'Company', 'Email', 'Phone', 'Source', 'Assigned Staff', 'Status', 'Priority', 'Estimated Value', 'Created Date'];
-    const rows = filteredLeads.map((l) => [
-      l.leadCode,
-      `"${l.name}"`,
-      `"${l.company}"`,
+    const headers = ['Contact Name', 'Company Name', 'Email', 'Phone', 'City', 'Pipeline Status', 'Priority', 'Assigned Staff', 'Assigned Dealer'];
+    const rows = leadList.map((l) => [
+      `"${l.contactName}"`,
+      `"${l.companyName}"`,
       l.email,
       l.phone,
-      `"${l.source}"`,
-      `"${l.assignedStaffName}"`,
-      l.status,
+      `"${l.city}"`,
+      l.pipelineStatus,
       l.priority,
-      l.estimatedValue || 0,
-      l.createdDate,
+      `"${l.staff?.fullName || 'Unassigned'}"`,
+      `"${l.dealer?.DealerName || 'Unassigned'}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -126,100 +132,97 @@ export const LeadsView: React.FC = () => {
     link.click();
     document.body.removeChild(link);
 
-    showToast({ type: 'info', title: 'Export Generated', message: `Exported ${filteredLeads.length} leads to CSV.` });
+    showToast({ type: 'info', title: 'Export Generated', message: `Exported ${leadList.length} leads to CSV.` });
   };
 
-  const columns: Column<Lead>[] = [
+  const columns: Column<BackendLead>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: 'Name & Company',
       render: (lead) => (
         <>
           <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
-            {lead.name}
+            {lead.contactName}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5 leading-none">
-            {lead.email}
+          <p className="text-xs text-slate-500 mt-0.5 leading-none">
+            {lead.companyName}
           </p>
         </>
       ),
     },
     {
-      key: 'company',
-      header: 'Company',
+      key: 'contact',
+      header: 'Contact Info',
       render: (lead) => (
-        <span className="text-slate-700 text-sm font-medium">{lead.company}</span>
+        <>
+          <span className="text-slate-800 text-sm font-medium leading-tight">{lead.phone}</span>
+          <p className="text-xs text-slate-400 mt-0.5">{lead.email}</p>
+        </>
       ),
     },
     {
-      key: 'source',
-      header: 'Source',
+      key: 'city',
+      header: 'City',
       render: (lead) => (
-        <span className="text-xs text-slate-600 font-medium">{lead.source}</span>
+        <span className="text-xs text-slate-600 font-medium">{lead.city}</span>
       ),
     },
     {
       key: 'assignedStaffName',
       header: 'Assigned',
       render: (lead) => {
-        const initials = lead.assignedStaffName && lead.assignedStaffName !== 'Unassigned'
-          ? lead.assignedStaffName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+        const staffName = lead.staff?.fullName || 'Unassigned';
+        const initials = staffName !== 'Unassigned'
+          ? staffName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
           : 'Un';
-        const avatarBg =
-          initials === 'JD' ? 'bg-blue-600 text-white' :
-          initials === 'AS' ? 'bg-indigo-600 text-white' :
-          initials === 'SJ' ? 'bg-purple-600 text-white' :
-          initials === 'Un' ? 'bg-slate-200 text-slate-600' :
-          'bg-emerald-600 text-white';
+        
         return (
-          <div className="flex items-center gap-2">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarBg}`}>
-              {initials}
-            </span>
-            <span className={`text-xs ${lead.assignedStaffName === 'Unassigned' ? 'italic text-slate-400' : 'text-slate-800 font-medium'}`}>
-              {lead.assignedStaffName || 'Unassigned'}
-            </span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold bg-blue-100 text-blue-700`}>
+                {initials}
+              </span>
+              <span className={`text-xs ${staffName === 'Unassigned' ? 'italic text-slate-400' : 'text-slate-800 font-medium'}`}>
+                {staffName}
+              </span>
+            </div>
+            {lead.dealer && (
+              <span className="text-[10px] text-slate-500 truncate w-32" title={lead.dealer.DealerName}>
+                Dealer: {lead.dealer.DealerName}
+              </span>
+            )}
           </div>
         );
       },
     },
     {
-      key: 'status',
+      key: 'pipelineStatus',
       header: 'Status',
-      render: (lead) => <StatusBadge status={lead.status} size="sm" />,
+      render: (lead) => <StatusBadge status={lead.pipelineStatus as any} size="sm" />,
     },
     {
       key: 'priority',
       header: 'Priority',
-      render: (lead) => <PriorityBadge priority={lead.priority} />,
+      render: (lead) => <PriorityBadge priority={lead.priority as any} />,
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (lead) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {lead.status !== 'Converted' && (
-            <button
-              onClick={() => setOpenModal('convert_lead', lead)}
-              className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
-              title="Convert lead to dealer"
-            >
-              Convert
-            </button>
-          )}
           <button
-            onClick={() => setOpenModal('lead_assign', lead)}
+            onClick={() => setOpenModal('lead_form', lead)}
             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            title="Assign to staff"
+            title="Edit Lead"
           >
-            <UserCheck className="w-4 h-4" />
+            <Edit2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => setOpenModal('lead_detail', lead)}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            title="View full lead record"
+            onClick={() => handleDelete(lead._id, lead.contactName)}
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+            title="Delete Lead"
           >
-            <MoreHorizontal className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -228,94 +231,20 @@ export const LeadsView: React.FC = () => {
 
   const actions = (
     <>
-      {/* Filter toggle */}
-      <div className="relative">
-        <button
-          onClick={() => setIsFilterOpen((prev) => !prev)}
-          className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors ${
-            sourceFilter !== 'All' || priorityFilter !== 'All'
-              ? 'bg-blue-50 border-blue-200 text-blue-700'
-              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <Filter className="w-3.5 h-3.5" />
-          <span>Filters</span>
-          {(sourceFilter !== 'All' || priorityFilter !== 'All') && (
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-          )}
-        </button>
-        {isFilterOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-30 space-y-3">
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500 uppercase">Source</label>
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="w-full mt-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-hidden"
-              >
-                <option value="All">All Sources</option>
-                <option value="Website Form">Website Form</option>
-                <option value="Referral">Referral</option>
-                <option value="Trade Show">Trade Show</option>
-                <option value="Cold Call">Cold Call</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500 uppercase">Priority</label>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full mt-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-hidden"
-              >
-                <option value="All">All Priorities</option>
-                <option value="Urgent">Urgent</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Sort Menu Toggle */}
-      <div className="relative">
-        <button
-          onClick={() => setIsSortOpen((prev) => !prev)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors"
-        >
-          <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-          <span>Sort</span>
-        </button>
-        {isSortOpen && (
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 z-30 space-y-0.5">
-            {[
-              { id: 'date-desc', label: 'Date (Newest)' },
-              { id: 'date-asc', label: 'Date (Oldest)' },
-              { id: 'priority', label: 'Priority (Urgent)' },
-              { id: 'name', label: 'Lead Name (A-Z)' },
-              { id: 'value', label: 'Estimated Value (₹)' },
-            ].map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSortBy(s.id as any);
-                  setIsSortOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors text-left ${
-                  sortBy === s.id
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <span>{s.label}</span>
-                {sortBy === s.id && <Check className="w-3.5 h-3.5 text-blue-600" />}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden"
+      >
+        <option value="All">All Statuses</option>
+        <option value="New">New</option>
+        <option value="Contacted">Contacted</option>
+        <option value="Follow-up">Follow-up</option>
+        <option value="Qualified">Qualified</option>
+        <option value="Negotiation">Negotiation</option>
+        <option value="Converted">Converted</option>
+        <option value="Lost">Lost</option>
+      </select>
       <button
         onClick={handleExportCSV}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors"
@@ -328,80 +257,48 @@ export const LeadsView: React.FC = () => {
 
   return (
     <div id="leads-module" className="space-y-5 pb-12 px-4 sm:px-6 lg:px-8">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Leads</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Leads Pipeline</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {totalResults.toLocaleString()} total leads currently in the pipeline.
+            Track and manage prospective clients through your conversion funnel.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setOpenModal('lead_form')}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Add Lead</span>
+            <span>New Lead</span>
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
-        {['All', 'New', 'Contacted', 'Follow-up', 'Qualified', 'Negotiation', 'Converted', 'Lost'].map((st) => {
-          const isActive = statusFilter === st;
-          const count = st === 'All' ? totalResults : leads.filter((l) => l.status === st).length;
-          return (
-            <button
-              key={st}
-              onClick={() => {
-                setStatusFilter(st);
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 flex items-center gap-1.5 ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <span>{st}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'}`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+      {/* Network Stats Highlights */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Leads</p>
+          <p className="text-xl font-bold text-slate-900 mt-0.5">{totalRecords}</p>
+        </div>
+        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase">New Leads</p>
+          <p className="text-xl font-bold text-blue-600 mt-0.5">
+            {leadList.filter((d) => d.pipelineStatus === 'New').length}
+          </p>
+        </div>
       </div>
 
-      {selectedLeadIds.length > 0 && (
-        <div className="px-4 py-2.5 bg-blue-50/80 border-b border-blue-100 flex items-center justify-between text-xs text-blue-900 animate-in fade-in rounded-t-xl">
-          <span className="font-semibold">{selectedLeadIds.length} leads selected</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => handleBulkStatus('Qualified')} className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-blue-200 rounded-lg text-blue-700 font-medium">
-              Mark Qualified
-            </button>
-            <button onClick={() => handleBulkStatus('Contacted')} className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-blue-200 rounded-lg text-blue-700 font-medium">
-              Mark Contacted
-            </button>
-            <button onClick={handleBulkDelete} className="px-2.5 py-1 bg-white hover:bg-red-50 border border-red-200 rounded-lg text-red-600 font-medium flex items-center gap-1">
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </button>
-          </div>
-        </div>
-      )}
-
       <CommonTable
-        data={displayedLeads}
+        data={leadList}
         columns={columns}
-        keyExtractor={(l) => l.id}
+        keyExtractor={(l) => l._id}
         searchTerm={searchTerm}
         onSearchChange={(term) => {
           setSearchTerm(term);
           setCurrentPage(1);
         }}
-        selectedIds={selectedLeadIds}
-        onSelectAll={handleSelectAll}
-        onToggleSelect={handleToggleSelect}
         onRowClick={(lead) => setOpenModal('lead_detail', lead)}
         actions={actions}
         pagination={{
