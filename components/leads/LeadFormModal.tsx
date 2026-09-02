@@ -198,6 +198,7 @@ const LeadFormContent: React.FC<LeadFormContentProps> = ({ modalData, closeModal
               labelKey="fullName"
               valueKey="_id"
               placeholder="Search staff..."
+              initialLabel={modalData?.staff?.fullName || ''}
             />
           </div>
           <div>
@@ -209,6 +210,7 @@ const LeadFormContent: React.FC<LeadFormContentProps> = ({ modalData, closeModal
               labelKey="DealerName"
               valueKey="_id"
               placeholder="Search dealer..."
+              initialLabel={modalData?.dealer?.DealerName || ''}
             />
           </div>
         </div>

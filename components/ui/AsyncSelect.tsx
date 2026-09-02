@@ -11,6 +11,7 @@ interface AsyncSelectProps {
   labelKey: string;
   valueKey: string;
   placeholder?: string;
+  initialLabel?: string;
 }
 
 export const AsyncSelect: React.FC<AsyncSelectProps> = ({
@@ -20,6 +21,7 @@ export const AsyncSelect: React.FC<AsyncSelectProps> = ({
   labelKey,
   valueKey,
   placeholder = 'Select...',
+  initialLabel = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState<any[]>([]);
@@ -28,7 +30,7 @@ export const AsyncSelect: React.FC<AsyncSelectProps> = ({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState<string>('');
+  const [selectedLabel, setSelectedLabel] = useState<string>(initialLabel);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -92,20 +94,12 @@ export const AsyncSelect: React.FC<AsyncSelectProps> = ({
 
   // Fetch initial selected label if value exists but options are empty
   useEffect(() => {
-    const fetchInitialValue = async () => {
-      if (value && !selectedLabel) {
-        // Find in current options
-        const match = options.find((opt) => opt[valueKey] === value);
-        if (match) {
-          setSelectedLabel(match[labelKey]);
-          return;
-        }
-        // If not in current options, we need to fetch it (Assuming backend has an endpoint for it, but for simplicity we rely on the list or just show the ID for now, or we can just hope it gets loaded in the first page).
-        // For a robust CRM, we might want an endpoint like /v1/api/staff/:id to fetch the name. 
-        // For now, if we can't find it, we just display the ID or 'Selected'.
+    if (value && !selectedLabel && options.length > 0) {
+      const match = options.find((opt) => opt[valueKey] === value);
+      if (match) {
+        setSelectedLabel(match[labelKey]);
       }
-    };
-    fetchInitialValue();
+    }
   }, [value, options, valueKey, labelKey, selectedLabel]);
 
   // Infinite Scroll Observer
