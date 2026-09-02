@@ -132,7 +132,7 @@ export const DealersView: React.FC = () => {
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-semibold text-slate-400 uppercase">Credit Allocated</p>
-          <p className="text-xl font-bold text-blue-600 mt-0.5">$18.5M</p>
+          <p className="text-xl font-bold text-blue-600 mt-0.5">₹18.5M</p>
           <span className="text-[11px] text-slate-400 font-normal">Active credit line</span>
         </div>
       </div>

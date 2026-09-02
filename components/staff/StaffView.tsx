@@ -84,7 +84,7 @@ export const StaffView: React.FC = () => {
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Pipeline Closed</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">$4.85M</p>
+          <p className="text-xl font-bold text-slate-900 mt-0.5">₹4.85M</p>
           <span className="text-[11px] text-emerald-600 font-medium">+14% vs Target</span>
         </div>
       </div>

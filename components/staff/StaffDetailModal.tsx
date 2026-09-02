@@ -106,7 +106,7 @@ export const StaffDetailModal: React.FC = () => {
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-[11px] font-semibold text-slate-400 uppercase">Closed Value</p>
-              <p className="text-xl font-bold text-blue-600 mt-0.5">$840,000</p>
+              <p className="text-xl font-bold text-blue-600 mt-0.5">₹840,000</p>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-[11px] font-semibold text-slate-400 uppercase">Tenure</p>

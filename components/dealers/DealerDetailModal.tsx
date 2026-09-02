@@ -208,8 +208,8 @@ export const DealerDetailModal: React.FC = () => {
               <h4 className="text-xs font-bold text-slate-900 uppercase">Recent Wholesale Orders</h4>
               <div className="space-y-2">
                 {[
-                  { id: 'ORD-9481', date: '2026-08-28', items: '24 Units (Fleet Package)', total: '$384,000', status: 'Fulfilled' },
-                  { id: 'ORD-9210', date: '2026-07-15', items: '12 Units (Standard Stock)', total: '$192,000', status: 'Settled' },
+                  { id: 'ORD-9481', date: '2026-08-28', items: '24 Units (Fleet Package)', total: '₹3,84,000', status: 'Fulfilled' },
+                  { id: 'ORD-9210', date: '2026-07-15', items: '12 Units (Standard Stock)', total: '₹1,92,000', status: 'Settled' },
                 ].map((ord) => (
                   <div
                     key={ord.id}
