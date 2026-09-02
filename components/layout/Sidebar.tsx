@@ -21,9 +21,6 @@ export const Sidebar: React.FC = () => {
     sidebarCollapsed,
     setSidebarCollapsed,
     setOpenModal,
-    leads,
-    dealers,
-    staff,
   } = useCRM();
 
   const navItems = [
@@ -37,19 +34,16 @@ export const Sidebar: React.FC = () => {
       id: 'leads' as const,
       label: 'Leads',
       icon: Users,
-      badge: leads.length > 0 ? leads.length.toLocaleString() : null,
     },
     {
       id: 'dealers' as const,
       label: 'Dealers',
       icon: Store,
-      badge: dealers.length > 0 ? dealers.length.toString() : null,
     },
     {
       id: 'staff' as const,
       label: 'Staff',
       icon: UserCheck,
-      badge: staff.length > 0 ? staff.length.toString() : null,
     },
   ];
 
@@ -118,18 +112,6 @@ export const Sidebar: React.FC = () => {
               {!sidebarCollapsed && (
                 <>
                   <span className="truncate flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span
-                      suppressHydrationWarning
-                      className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
                 </>
               )}
             </button>

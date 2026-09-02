@@ -12,9 +12,8 @@ export const LogoutConfirmModal: React.FC = () => {
   const handleLogout = () => {
     closeModal();
     
-    // Clear authentication
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userEmail');
+    // Clear all local storage
+    localStorage.clear();
     
     showToast({
       type: 'info',

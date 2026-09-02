@@ -15,14 +15,14 @@ import {
 } from 'lucide-react';
 
 export const DealersView: React.FC = () => {
-  const { dealers, setOpenModal, deleteDealer, showToast } = useCRM();
+  const { dealers, setOpenModal, deleteDealer, showToast, showConfirmDialog } = useCRM();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [regionFilter, setRegionFilter] = useState<string>('All');
   const [selectedDealerIds, setSelectedDealerIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Filtered Dealers
   const filteredDealers = useMemo(() => {
@@ -167,9 +167,9 @@ export const DealersView: React.FC = () => {
           </button>
           <button
             onClick={() => {
-              if (confirm(`Delete dealer ${dealer.name}?`)) {
+              showConfirmDialog('Delete Dealer', `Delete dealer ${dealer.name}?`, () => {
                 deleteDealer(dealer.id);
-              }
+              });
             }}
             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
             title="Delete Dealer"
@@ -289,7 +289,12 @@ export const DealersView: React.FC = () => {
         pagination={{
           currentPage,
           totalPages,
+          limit: itemsPerPage,
           onPageChange: setCurrentPage,
+          onLimitChange: (limit) => {
+            setItemsPerPage(limit);
+            setCurrentPage(1);
+          },
         }}
       />
     </div>

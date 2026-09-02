@@ -23,6 +23,7 @@ export const LeadsView: React.FC = () => {
     deleteLead,
     updateLead,
     showToast,
+    showConfirmDialog,
   } = useCRM();
 
   // Filters & State
@@ -35,7 +36,7 @@ export const LeadsView: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const itemsPerPage = 8;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Filtered Leads
   const filteredLeads = useMemo(() => {
@@ -87,11 +88,11 @@ export const LeadsView: React.FC = () => {
 
   // Bulk actions
   const handleBulkDelete = () => {
-    if (confirm(`Are you sure you want to delete ${selectedLeadIds.length} selected leads?`)) {
+    showConfirmDialog('Bulk Delete', `Are you sure you want to delete ${selectedLeadIds.length} selected leads?`, () => {
       selectedLeadIds.forEach((id) => deleteLead(id));
       setSelectedLeadIds([]);
       showToast({ type: 'warning', title: 'Bulk Delete', message: 'Selected leads have been removed.' });
-    }
+    });
   };
 
   const handleBulkStatus = (status: LeadStatus) => {
@@ -406,7 +407,12 @@ export const LeadsView: React.FC = () => {
         pagination={{
           currentPage,
           totalPages,
+          limit: itemsPerPage,
           onPageChange: setCurrentPage,
+          onLimitChange: (limit) => {
+            setItemsPerPage(limit);
+            setCurrentPage(1);
+          },
         }}
       />
     </div>

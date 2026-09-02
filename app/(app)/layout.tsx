@@ -6,6 +6,7 @@ import { CRMProvider } from '@/lib/crm-context';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
+import { ConfirmDialogModal } from '@/components/ui/ConfirmDialogModal';
 import { ToastContainer } from '@/components/ui/Toast';
 import { useCRM } from '@/lib/crm-context';
 
@@ -47,6 +48,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Global Modals & Notifications */}
       <LogoutConfirmModal />
+      <ConfirmDialogModal />
       <ToastContainer />
     </div>
   );

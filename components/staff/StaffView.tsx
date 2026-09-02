@@ -1,117 +1,142 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { StaffMember, StaffStatus } from '@/lib/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { CommonTable, Column } from '@/components/ui/CommonTable';
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  ExternalLink,
-} from 'lucide-react';
+import { Plus, Edit2, Trash2, ExternalLink } from 'lucide-react';
+import api from '@/lib/axios';
+
+// Local interface representing the backend staff schema
+interface BackendStaff {
+  _id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  status: string;
+  createdAt?: string;
+}
 
 export const StaffView: React.FC = () => {
-  const { staff, setOpenModal, deleteStaff, leads } = useCRM();
+  const { setOpenModal, openModal, showToast, showConfirmDialog } = useCRM();
 
+  const [staffList, setStaffList] = useState<BackendStaff[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('All');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const filteredStaff = useMemo(() => {
-    return staff.filter((s) => {
-      const matchSearch =
-        searchTerm === '' ||
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset page on new search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-      const matchDept = departmentFilter === 'All' || s.department === departmentFilter;
-      const matchStatus = statusFilter === 'All' || s.status === statusFilter;
+  const fetchStaffData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/v1/api/staff', {
+        params: {
+          page: currentPage,
+          limit: itemsPerPage,
+          search: debouncedSearch,
+        },
+      });
+      
+      // The backend might return an array directly, or an object containing the array.
+      let staffArray = [];
+      let total = 0;
+      let pages = 1;
 
-      return matchSearch && matchDept && matchStatus;
-    });
-  }, [staff, searchTerm, departmentFilter, statusFilter]);
+      if (Array.isArray(res)) {
+        staffArray = res;
+        total = res.length;
+      } else if (res && res.data && Array.isArray(res.data)) {
+        staffArray = res.data;
+        total = (res as any).pagination?.totalRecords || staffArray.length;
+        pages = (res as any).pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
+      } else if (res && Array.isArray(res.data?.data)) {
+        staffArray = res.data.data;
+        total = res.data.pagination?.totalRecords || staffArray.length;
+        pages = res.data.pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
+      }
 
-  const displayedStaff = filteredStaff.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const totalPages = Math.max(1, Math.ceil(filteredStaff.length / itemsPerPage));
+      setStaffList(staffArray);
+      setTotalPages(pages);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error('Failed to fetch staff data:', err);
+      showToast({ type: 'error', title: 'Error', message: 'Failed to fetch staff data' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const columns: Column<StaffMember>[] = [
+  // Fetch when page, search, limit, or modal state changes (to refresh after add/edit)
+  useEffect(() => {
+    if (!openModal) {
+      fetchStaffData();
+    }
+  }, [currentPage, debouncedSearch, openModal, itemsPerPage]);
+
+  const handleDelete = async (id: string, name: string) => {
+    showConfirmDialog(
+      'Delete Staff Member',
+      `Are you sure you want to delete staff member ${name}?`,
+      async () => {
+        try {
+          await api.delete(`/v1/api/staff/${id}`);
+          showToast({ type: 'success', title: 'Deleted', message: `${name} has been removed.` });
+          fetchStaffData();
+        } catch (err: any) {
+          console.error('Failed to delete staff:', err);
+          showToast({ type: 'error', title: 'Error', message: err.response?.data?.message || 'Failed to delete staff' });
+        }
+      }
+    );
+  };
+
+  const columns: Column<BackendStaff>[] = [
     {
-      key: 'name',
-      header: 'Staff Member',
+      key: 'fullName',
+      header: 'Full Name',
       render: (member) => (
         <div className="flex items-center gap-3">
-          <img
-            src={member.photo}
-            alt={member.name}
-            className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
-          />
-          <div>
-            <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
-              {member.name}
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5 leading-none">
-              #{member.employeeId} · Joined {member.joinedDate}
-            </p>
+          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
+            {member.fullName.substring(0, 2).toUpperCase()}
           </div>
+          <p className="font-semibold text-slate-900 leading-tight">
+            {member.fullName}
+          </p>
         </div>
-      ),
-    },
-    {
-      key: 'role',
-      header: 'Department & Role',
-      render: (member) => (
-        <>
-          <p className="font-medium text-slate-800 leading-tight">{member.role}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{member.department}</p>
-        </>
       ),
     },
     {
       key: 'email',
-      header: 'Contact Info',
+      header: 'Email Address',
       render: (member) => (
-        <>
-          <p className="text-xs text-slate-700">{member.email}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{member.phone}</p>
-        </>
+        <span className="text-sm text-slate-700">{member.email}</span>
       ),
     },
     {
-      key: 'assignedLeadsCount',
-      header: 'Assigned Leads',
-      render: (member) => {
-        const assignedCount = leads.filter((l) => l.assignedStaffId === member.id).length;
-        return (
-          <div className="text-right text-xs font-bold text-slate-800">
-            {member.assignedLeadsCount + assignedCount}
-          </div>
-        );
-      },
-    },
-    {
-      key: 'conversionRate',
-      header: 'Conv. Rate',
+      key: 'phone',
+      header: 'Phone Number',
       render: (member) => (
-        <div className="text-right">
-          <span className="inline-block text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-            {member.conversionRate}%
-          </span>
-        </div>
+        <span className="text-sm text-slate-700">{member.phone}</span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (member) => <StatusBadge status={member.status} size="sm" />,
+      render: (member) => (
+        <StatusBadge status={member.status.charAt(0).toUpperCase() + member.status.slice(1)} size="sm" />
+      ),
     },
     {
       key: 'actions',
@@ -119,26 +144,16 @@ export const StaffView: React.FC = () => {
       render: (member) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => setOpenModal('staff_detail', member)}
-            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg"
-            title="View Profile"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </button>
-          <button
             onClick={() => setOpenModal('staff_form', member)}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             title="Edit Staff"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => {
-              if (confirm(`Remove staff member ${member.name}?`)) {
-                deleteStaff(member.id);
-              }
-            }}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+            onClick={() => handleDelete(member._id, member.fullName)}
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+            title="Delete Staff"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -147,41 +162,14 @@ export const StaffView: React.FC = () => {
     },
   ];
 
-  const actions = (
-    <>
-      <select
-        value={departmentFilter}
-        onChange={(e) => setDepartmentFilter(e.target.value)}
-        className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden"
-      >
-        <option value="All">All Departments</option>
-        <option value="Enterprise Sales">Enterprise Sales</option>
-        <option value="Dealer Operations">Dealer Operations</option>
-        <option value="Executive">Executive</option>
-        <option value="Client Success">Client Success</option>
-      </select>
-
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden"
-      >
-        <option value="All">All Statuses</option>
-        <option value="Active">Active</option>
-        <option value="On Leave">On Leave</option>
-        <option value="Inactive">Inactive</option>
-      </select>
-    </>
-  );
-
   return (
     <div id="staff-module" className="space-y-5 pb-12 px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Staff</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Staff Directory</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage sales reps, dealer account managers, performance quotas, and assignments.
+            {totalRecords} total staff members managed via the API.
           </p>
         </div>
         <button
@@ -193,45 +181,21 @@ export const StaffView: React.FC = () => {
         </button>
       </div>
 
-      {/* Staff Highlights */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Team Members</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">{32 + (staff.length - 7)}</p>
-          <span className="text-[11px] text-emerald-600 font-medium">92% Active in Field</span>
-        </div>
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Top Performer</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">Marcus Vance</p>
-          <span className="text-[11px] text-emerald-600 font-semibold">78% Win Rate</span>
-        </div>
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Avg Response Time</p>
-          <p className="text-xl font-bold text-blue-600 mt-0.5">18 mins</p>
-          <span className="text-[11px] text-slate-400 font-normal">SLA benchmark: 30m</span>
-        </div>
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Pipeline Closed</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">₹4.85M</p>
-          <span className="text-[11px] text-emerald-600 font-medium">+14% vs Target</span>
-        </div>
-      </div>
-
       <CommonTable
-        data={displayedStaff}
+        data={staffList}
         columns={columns}
-        keyExtractor={(s) => s.id}
+        keyExtractor={(s) => s._id}
         searchTerm={searchTerm}
-        onSearchChange={(term) => {
-          setSearchTerm(term);
-          setCurrentPage(1);
-        }}
-        onRowClick={(member) => setOpenModal('staff_detail', member)}
-        actions={actions}
+        onSearchChange={setSearchTerm}
         pagination={{
           currentPage,
           totalPages,
+          limit: itemsPerPage,
           onPageChange: setCurrentPage,
+          onLimitChange: (limit) => {
+            setItemsPerPage(limit);
+            setCurrentPage(1); // Reset to page 1 on limit change
+          },
         }}
       />
     </div>

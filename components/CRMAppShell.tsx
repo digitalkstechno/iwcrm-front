@@ -8,8 +8,6 @@ import { DashboardView } from '@/components/dashboard/DashboardView';
 import { LeadsView } from '@/components/leads/LeadsView';
 import { DealersView } from '@/components/dealers/DealersView';
 import { StaffView } from '@/components/staff/StaffView';
-import { ReportsView } from '@/components/reports/ReportsView';
-import { SettingsView } from '@/components/settings/SettingsView';
 
 // Modals
 import { GlobalSearchModal } from '@/components/ui/GlobalSearchModal';
@@ -24,6 +22,7 @@ import { StaffDetailModal } from '@/components/staff/StaffDetailModal';
 import { StaffFormModal } from '@/components/staff/StaffFormModal';
 import { QuickActionModal } from '@/components/ui/QuickActionModal';
 import { LogoutConfirmModal } from '@/components/ui/LogoutConfirmModal';
+import { ConfirmDialogModal } from '@/components/ui/ConfirmDialogModal';
 import { ToastContainer } from '@/components/ui/Toast';
 
 export const CRMAppShell: React.FC = () => {
@@ -49,8 +48,6 @@ export const CRMAppShell: React.FC = () => {
           {activeTab === 'leads' && <LeadsView />}
           {activeTab === 'dealers' && <DealersView />}
           {activeTab === 'staff' && <StaffView />}
-          {activeTab === 'reports' && <ReportsView />}
-          {activeTab === 'settings' && <SettingsView />}
         </div>
       </main>
 
@@ -67,6 +64,7 @@ export const CRMAppShell: React.FC = () => {
       <StaffFormModal />
       <QuickActionModal />
       <LogoutConfirmModal />
+      <ConfirmDialogModal />
       <ToastContainer />
     </div>
   );

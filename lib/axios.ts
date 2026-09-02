@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with a default base URL
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -13,10 +13,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // You can add auth tokens here if needed
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('worldtoken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
     return config;
   },
   (error) => Promise.reject(error)

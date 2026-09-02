@@ -21,7 +21,9 @@ export interface CommonTableProps<T> {
   pagination?: {
     currentPage: number;
     totalPages: number;
+    limit?: number;
     onPageChange: (page: number) => void;
+    onLimitChange?: (limit: number) => void;
   };
 }
 
@@ -125,10 +127,27 @@ export function CommonTable<T>({
       </div>
 
       {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-500">
-          <div>
-            Showing page {pagination.currentPage} of {pagination.totalPages}
+      {pagination && (pagination.totalPages > 1 || pagination.onLimitChange) && (
+        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-slate-500">
+          <div className="flex items-center gap-4">
+            <div>
+              Showing page {pagination.currentPage} of {Math.max(1, pagination.totalPages)}
+            </div>
+            {pagination.onLimitChange && (
+              <div className="flex items-center gap-2">
+                <span>Rows per page:</span>
+                <select
+                  value={pagination.limit || 10}
+                  onChange={(e) => pagination.onLimitChange?.(Number(e.target.value))}
+                  className="px-2 py-1 border border-slate-200 rounded-md text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex gap-1">
             <button
@@ -140,7 +159,7 @@ export function CommonTable<T>({
             </button>
             <button
               onClick={() => pagination.onPageChange(Math.min(pagination.totalPages, pagination.currentPage + 1))}
-              disabled={pagination.currentPage === pagination.totalPages}
+              disabled={pagination.currentPage >= pagination.totalPages}
               className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next

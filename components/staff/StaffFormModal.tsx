@@ -2,63 +2,81 @@
 
 import React, { useState } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { Staff } from '@/lib/types';
 import { X, User, Save } from 'lucide-react';
+import api from '@/lib/axios';
 
 interface StaffFormContentProps {
   modalData: any;
   closeModal: () => void;
-  addStaff: (data: any) => void;
-  updateStaff: (id: string, data: any) => void;
+  onSuccess: () => void;
 }
 
 const StaffFormContent: React.FC<StaffFormContentProps> = ({
   modalData,
   closeModal,
-  addStaff,
-  updateStaff,
+  onSuccess,
 }) => {
-  const isEdit = !!modalData?.id;
+  const isEdit = !!modalData?._id || !!modalData?.id;
+  const idToEdit = modalData?._id || modalData?.id;
 
   const [formData, setFormData] = useState({
-    name: modalData?.name || '',
-    role: modalData?.role || 'Senior Sales Executive',
-    department: modalData?.department || 'Enterprise Sales',
+    fullName: modalData?.fullName || modalData?.name || '',
     email: modalData?.email || '',
     phone: modalData?.phone || '',
-    photo: modalData?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    status: (modalData?.status || 'Active') as 'Active' | 'On Leave' | 'Inactive',
-    conversionRate: modalData?.conversionRate || 65,
-    assignedLeadsCount: modalData?.assignedLeadsCount || 12,
+    password: '',
+    status: (modalData?.status || 'active') as string,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) return;
-
-    const payload = {
-      name: formData.name,
-      role: formData.role as any,
-      department: formData.department,
-      email: formData.email,
-      phone: formData.phone,
-      photo: formData.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      status: formData.status,
-      conversionRate: formData.conversionRate,
-      assignedLeadsCount: formData.assignedLeadsCount || 0,
-      convertedLeadsCount: modalData?.convertedLeadsCount || 0,
-      performanceScore: modalData?.performanceScore || 88,
-      location: modalData?.location || 'Seattle, WA',
-      pendingFollowUps: modalData?.pendingFollowUps || 0,
-      attendanceRate: modalData?.attendanceRate || 98,
-    };
-
-    if (isEdit) {
-      updateStaff(modalData.id, payload);
-    } else {
-      addStaff(payload);
+    if (!formData.fullName.trim() || !formData.email.trim() || !formData.phone.trim()) {
+      setError('Please fill in all required fields.');
+      return;
     }
-    closeModal();
+
+    const rawPhone = formData.phone.replace(/^\+91\s*/, '');
+    if (rawPhone.length !== 10) {
+      setError('Phone number must be exactly 10 digits.');
+      return;
+    }
+    
+    // For create, password is required
+    if (!isEdit && !formData.password) {
+      setError('Password is required for new staff.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const payload: any = {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        status: formData.status,
+      };
+
+      if (formData.password) {
+        payload.password = formData.password;
+      }
+
+      if (isEdit) {
+        await api.put(`/v1/api/staff/${idToEdit}`, payload);
+      } else {
+        await api.post('/v1/api/staff/create', payload);
+      }
+      onSuccess(); // Triggers table refresh
+      closeModal();
+    } catch (err: any) {
+      console.error('Failed to save staff:', err);
+      setError(err.response?.data?.message || err.message || 'An error occurred while saving.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,7 +93,7 @@ const StaffFormContent: React.FC<StaffFormContentProps> = ({
             <h2 className="text-sm font-bold text-slate-900">
               {isEdit ? 'Edit Staff Member' : 'Add New Staff Member'}
             </h2>
-            <p className="text-xs text-slate-500">Internal CRM employee profile & role assignment</p>
+            <p className="text-xs text-slate-500">Internal CRM employee profile</p>
           </div>
         </div>
         <button onClick={closeModal} className="p-1 text-slate-400 hover:text-slate-700">
@@ -85,13 +103,19 @@ const StaffFormContent: React.FC<StaffFormContentProps> = ({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        {error && (
+          <div className="p-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl">
+            {error}
+          </div>
+        )}
+        
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name *</label>
           <input
             type="text"
             required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            value={formData.fullName}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
             placeholder="e.g. Rachel Adams"
             className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
           />
@@ -111,68 +135,50 @@ const StaffFormContent: React.FC<StaffFormContentProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
-            <input
-              type="text"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+1 (555) 019-2831"
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Phone *</label>
+            <div className="flex items-center w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus-within:border-blue-500 overflow-hidden">
+              <span className="text-slate-500 mr-2 font-medium">+91</span>
+              <input
+                type="text"
+                required
+                maxLength={10}
+                value={formData.phone.replace(/^\+91\s*/, '')}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData({ ...formData, phone: val ? `+91 ${val}` : '' });
+                }}
+                placeholder="9876543210"
+                className="w-full text-slate-800 bg-transparent focus:outline-hidden"
+              />
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
-            <select
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            >
-              <option value="Enterprise Sales">Enterprise Sales</option>
-              <option value="Dealer Operations">Dealer Operations</option>
-              <option value="Executive">Executive</option>
-              <option value="Client Success">Client Success</option>
-              <option value="Support">Support</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Role Title</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Password {isEdit ? '(Leave blank to keep current)' : '*'}
+            </label>
             <input
-              type="text"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              placeholder="e.g. Account Executive"
+              type="password"
+              required={!isEdit}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="••••••••"
               className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
             >
-              <option value="Active">Active</option>
-              <option value="On Leave">On Leave</option>
-              <option value="Inactive">Inactive</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Avatar Photo URL</label>
-            <input
-              type="text"
-              value={formData.photo}
-              onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
-              placeholder="https://..."
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
           </div>
         </div>
 
@@ -180,16 +186,18 @@ const StaffFormContent: React.FC<StaffFormContentProps> = ({
           <button
             type="button"
             onClick={closeModal}
-            className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+            disabled={isLoading}
+            className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs flex items-center gap-1.5"
+            disabled={isLoading}
+            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs flex items-center gap-1.5 disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{isEdit ? 'Save Staff' : 'Add Staff'}</span>
+            <span>{isLoading ? 'Saving...' : (isEdit ? 'Save Staff' : 'Add Staff')}</span>
           </button>
         </div>
       </form>
@@ -197,8 +205,8 @@ const StaffFormContent: React.FC<StaffFormContentProps> = ({
   );
 };
 
-export const StaffFormModal: React.FC = () => {
-  const { openModal, modalData, closeModal, addStaff, updateStaff } = useCRM();
+export const StaffFormModal: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
+  const { openModal, modalData, closeModal } = useCRM();
 
   if (openModal !== 'staff_form') return null;
 
@@ -209,11 +217,10 @@ export const StaffFormModal: React.FC = () => {
       onClick={closeModal}
     >
       <StaffFormContent
-        key={modalData?.id || 'new-staff'}
+        key={modalData?._id || modalData?.id || 'new-staff'}
         modalData={modalData}
         closeModal={closeModal}
-        addStaff={addStaff}
-        updateStaff={updateStaff}
+        onSuccess={onSuccess || (() => {})}
       />
     </div>
   );

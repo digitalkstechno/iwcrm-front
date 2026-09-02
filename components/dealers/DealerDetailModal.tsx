@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export const DealerDetailModal: React.FC = () => {
-  const { openModal, modalData, closeModal, dealers, updateDealer, deleteDealer, leads, setOpenModal, showToast } = useCRM();
+  const { openModal, modalData, closeModal, dealers, updateDealer, deleteDealer, leads, setOpenModal, showToast, showConfirmDialog } = useCRM();
   const [tab, setTab] = useState<'overview' | 'leads' | 'orders' | 'agreements'>('overview');
 
   if (openModal !== 'dealer_detail' || !modalData) return null;
@@ -86,10 +86,10 @@ export const DealerDetailModal: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                if (confirm(`Delete dealer ${dealer.name}?`)) {
+                showConfirmDialog('Delete Dealer', `Delete dealer ${dealer.name}?`, () => {
                   deleteDealer(dealer.id);
                   closeModal();
-                }
+                });
               }}
               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
             >

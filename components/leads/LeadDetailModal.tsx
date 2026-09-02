@@ -41,6 +41,7 @@ export const LeadDetailModal: React.FC = () => {
     setOpenModal,
     completeFollowUp,
     showToast,
+    showConfirmDialog,
   } = useCRM();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'followups' | 'notes' | 'documents' | 'timeline'>('overview');
@@ -89,10 +90,10 @@ export const LeadDetailModal: React.FC = () => {
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete lead ${lead.name}?`)) {
+    showConfirmDialog('Delete Lead', `Are you sure you want to delete lead ${lead.name}?`, () => {
       deleteLead(lead.id);
       closeModal();
-    }
+    });
   };
 
   return (

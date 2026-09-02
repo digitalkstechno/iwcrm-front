@@ -77,10 +77,14 @@ interface CRMContextType {
   updateSettings: (newSettings: Partial<CRMSettings>) => void;
 
   // Toast
+  // Toast
   showToast: (toast: Omit<Toast, 'id'>) => void;
   dismissToast: (id: string) => void;
 
-  // Quick Action / Modals
+  // Confirm Dialog
+  confirmDialog: { isOpen: boolean; title: string; message: string; onConfirm: () => void } | null;
+  showConfirmDialog: (title: string, message: string, onConfirm: () => void) => void;
+  hideConfirmDialog: () => void;
   openModal: string | null;
   modalData: any;
   setOpenModal: (modalName: string | null, data?: any) => void;
@@ -173,6 +177,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
+
   const [openModal, setOpenModalState] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
 
@@ -195,24 +201,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try { localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(data)); } catch (e) {}
   }, []);
 
-  // Fetch data from API using Axios on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [leadsData, dealersData, staffData] = await Promise.all([
-          api.get('/api/leads').catch(() => null),
-          api.get('/api/dealers').catch(() => null),
-          api.get('/api/staff').catch(() => null)
-        ]);
-        if (leadsData && Array.isArray(leadsData)) saveLeads(leadsData);
-        if (dealersData && Array.isArray(dealersData)) saveDealers(dealersData);
-        if (staffData && Array.isArray(staffData)) saveStaff(staffData);
-      } catch (error) {
-        console.error('Failed to fetch initial CRM data:', error);
-      }
-    };
-    fetchData();
-  }, [saveLeads, saveDealers, saveStaff]);
+
 
   const saveActivities = useCallback((data: ActivityItem[]) => {
     setActivities(data);
@@ -251,6 +240,15 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const closeModal = useCallback(() => {
     setOpenModalState(null);
     setModalData(null);
+  }, []);
+
+  // Confirm Dialog Helpers
+  const showConfirmDialog = useCallback((title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm });
+  }, []);
+
+  const hideConfirmDialog = useCallback(() => {
+    setConfirmDialog(null);
   }, []);
 
   // Lead Handlers
@@ -980,6 +978,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         modalData,
         setOpenModal,
         closeModal,
+        confirmDialog,
+        showConfirmDialog,
+        hideConfirmDialog,
         searchQuery,
         setSearchQuery,
         isSearchOpen,

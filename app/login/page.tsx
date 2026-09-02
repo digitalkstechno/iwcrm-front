@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, LogIn, Layers } from 'lucide-react';
+import api from '@/lib/axios';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('sarah.jenkins@nexus.io');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isAutoLogin, setIsAutoLogin] = useState(false);
@@ -29,9 +30,6 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Simulate login delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-
       // Simple validation
       if (!email || !password) {
         setError('Please enter email and password');
@@ -39,14 +37,27 @@ export default function LoginPage() {
         return;
       }
 
-      // Store login state
+      // Call backend login API
+      const res: any = await api.post('/v1/api/staff/login', { email, password });
+      
+      // Store login state and token
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('userEmail', email);
+      
+      // The token might be nested, so we check multiple possible paths
+      const token = 
+        res.token || 
+        res.data?.token || 
+        res.data?.data?.token;
+        
+      if (token) {
+        localStorage.setItem('worldtoken', token);
+      }
 
       // Redirect to dashboard
       router.push('/dashboard');
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Login failed. Please try again.');
       setIsLoading(false);
     }
   };

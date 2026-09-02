@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export const StaffDetailModal: React.FC = () => {
-  const { openModal, modalData, closeModal, staff, updateStaff, deleteStaff, leads, setOpenModal } = useCRM();
+  const { openModal, modalData, closeModal, staff, updateStaff, deleteStaff, leads, setOpenModal, showConfirmDialog } = useCRM();
 
   if (openModal !== 'staff_detail' || !modalData) return null;
 
@@ -76,10 +76,10 @@ export const StaffDetailModal: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                if (confirm(`Remove staff member ${member.name}?`)) {
+                showConfirmDialog('Delete Staff', `Remove staff member ${member.name}?`, () => {
                   deleteStaff(member.id);
                   closeModal();
-                }
+                });
               }}
               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
             >
