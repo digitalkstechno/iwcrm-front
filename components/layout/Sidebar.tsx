@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  Settings,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -44,6 +45,11 @@ export const Sidebar: React.FC = () => {
       id: 'staff' as const,
       label: 'Staff',
       icon: UserCheck,
+    },
+    {
+      id: 'settings' as const,
+      label: 'Settings',
+      icon: Settings,
     },
   ];
 
