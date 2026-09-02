@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Settings, MessageSquare, Database, ShoppingCart, FolderUp, Calendar, Save, Globe, Key, Phone, CheckCircle2 } from 'lucide-react';
+import { Settings, MessageSquare, Database, ShoppingCart, FolderUp, Calendar, Save, Globe, Key, Phone, CheckCircle2, Link as LinkIcon, Copy } from 'lucide-react';
 import { useCRM } from '@/lib/crm-context';
 import { encryptData, decryptData } from '@/lib/encryption';
 import api from '@/lib/axios';
@@ -17,6 +17,7 @@ export default function SettingsPage() {
     metaPhoneNumberId: '',
     metaWabaId: '',
     metaChannelToken: '',
+    metaVerifyToken: 'kapil_crm_meta_token', // Default token matching backend
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -160,6 +161,44 @@ export default function SettingsPage() {
                       {renderInput('WABA ID', Database, 'Enter WhatsApp Business Account ID', 'metaWabaId')}
                       <div className="md:col-span-2">
                         {renderInput('Channel Token', Key, 'Enter channel specific token', 'metaChannelToken', 'textarea')}
+                      </div>
+                    </div>
+
+                    <div className="mt-8 border-t border-slate-100 pt-6">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <LinkIcon className="w-5 h-5 text-emerald-500" />
+                        Webhook Configuration
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2 space-y-1.5">
+                          <label className="text-sm font-semibold text-slate-700">Webhook URL</label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <Globe className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/v1/api/webhook/meta?challenge=`}
+                              className="w-full pl-10 pr-12 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none text-slate-600 font-mono"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/v1/api/webhook/meta?challenge=`);
+                                showToast({ type: 'success', title: 'Copied', message: 'Webhook URL copied to clipboard.' });
+                              }}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Copy URL"
+                            >
+                              <Copy className="w-5 h-5" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">Copy this URL and paste it in your Meta App Dashboard under Webhooks.</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          {renderInput('Verify Token', Key, 'Enter token for Meta webhook verification', 'metaVerifyToken')}
+                          <p className="text-xs text-slate-500 mt-1 pl-1">This token must match the one you enter in the Meta App Dashboard.</p>
+                        </div>
                       </div>
                     </div>
                   </div>
