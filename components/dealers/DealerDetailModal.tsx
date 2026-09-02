@@ -2,41 +2,45 @@
 
 import React, { useState } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { Dealer, DealerStatus } from '@/lib/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   X,
-  Store,
-  MapPin,
-  Phone,
-  Mail,
   Edit2,
   Trash2,
-  CheckCircle2,
-  Users,
-  DollarSign,
-  TrendingUp,
-  FileText,
-  Plus,
-  ArrowRight,
-  Sparkles,
 } from 'lucide-react';
+import api from '@/lib/axios';
 
 export const DealerDetailModal: React.FC = () => {
-  const { openModal, modalData, closeModal, dealers, updateDealer, deleteDealer, leads, setOpenModal, showToast, showConfirmDialog } = useCRM();
-  const [tab, setTab] = useState<'overview' | 'leads' | 'orders' | 'agreements'>('overview');
+  const { openModal, modalData, closeModal, setOpenModal, showToast, showConfirmDialog } = useCRM();
+  const [tab, setTab] = useState<'overview' | 'orders' | 'agreements'>('overview');
 
   if (openModal !== 'dealer_detail' || !modalData) return null;
 
-  const dealer: Dealer = dealers.find((d) => d.id === modalData.id) || modalData;
+  const dealer = modalData;
 
-  const handleStatusToggle = (status: DealerStatus) => {
-    updateDealer(dealer.id, { status });
+  const handleStatusToggle = async (status: string) => {
+    try {
+      await api.put(`/v1/api/dealer/${dealer._id}`, { status });
+      dealer.status = status; // optimistically update local object
+      showToast({ type: 'success', title: 'Status Updated', message: `Dealer status changed to ${status}` });
+    } catch (err: any) {
+      console.error('Failed to update status', err);
+      showToast({ type: 'error', title: 'Error', message: 'Failed to update status' });
+    }
   };
 
-  const assignedLeads = leads.filter(
-    (l) => l.company.toLowerCase().includes(dealer.name.toLowerCase()) || l.status === 'Converted'
-  );
+  const handleDelete = () => {
+    showConfirmDialog('Delete Dealer', `Delete dealer ${dealer.DealerName}?`, async () => {
+      try {
+        await api.delete(`/v1/api/dealer/${dealer._id}`);
+        showToast({ type: 'success', title: 'Deleted', message: `${dealer.DealerName} has been removed.` });
+        closeModal();
+      } catch (err: any) {
+        console.error('Failed to delete dealer:', err);
+        showToast({ type: 'error', title: 'Error', message: err.response?.data?.message || 'Failed to delete dealer' });
+      }
+    });
+  };
 
   return (
     <div
@@ -53,25 +57,17 @@ export const DealerDetailModal: React.FC = () => {
         <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-bold text-lg flex items-center justify-center shadow-xs shrink-0">
-              {dealer.name.substring(0, 2).toUpperCase()}
+              {dealer.DealerName ? dealer.DealerName.substring(0, 2).toUpperCase() : 'NA'}
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-xl font-bold text-slate-900">{dealer.name}</h2>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-700">
-                  #{dealer.dealerCode}
-                </span>
-                <span className="text-xs font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full">
-                  {dealer.tier || 'Gold Tier'}
-                </span>
-                <StatusBadge status={dealer.status} size="sm" />
+                <h2 className="text-xl font-bold text-slate-900">{dealer.DealerName}</h2>
+                <StatusBadge status={dealer.status.charAt(0).toUpperCase() + dealer.status.slice(1)} size="sm" />
               </div>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
-                <span>Primary Contact: <strong className="text-slate-700">{dealer.contactPerson}</strong></span>
+                <span>{dealer.Email}</span>
                 <span>•</span>
-                <span>{dealer.email}</span>
-                <span>•</span>
-                <span>{dealer.phone}</span>
+                <span>{dealer.Phone}</span>
               </p>
             </div>
           </div>
@@ -85,12 +81,7 @@ export const DealerDetailModal: React.FC = () => {
               <Edit2 className="w-4 h-4" />
             </button>
             <button
-              onClick={() => {
-                showConfirmDialog('Delete Dealer', `Delete dealer ${dealer.name}?`, () => {
-                  deleteDealer(dealer.id);
-                  closeModal();
-                });
-              }}
+              onClick={handleDelete}
               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
             >
               <Trash2 className="w-4 h-4" />
@@ -106,7 +97,6 @@ export const DealerDetailModal: React.FC = () => {
         <div className="px-6 border-b border-slate-200 flex items-center gap-6">
           {[
             { id: 'overview', label: 'Overview & Metrics' },
-            { id: 'leads', label: `Assigned Leads (${dealer.totalLeads})` },
             { id: 'orders', label: 'Orders & Commercials' },
             { id: 'agreements', label: 'Partner Agreements' },
           ].map((t) => (
@@ -131,24 +121,8 @@ export const DealerDetailModal: React.FC = () => {
               {/* Metric Highlights */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Conversion Rate</p>
-                  <p className="text-xl font-bold text-emerald-600 mt-0.5">
-                    {dealer.conversionRate || (dealer.convertedLeads && dealer.totalLeads ? Math.round((dealer.convertedLeads / dealer.totalLeads) * 100) : 62)}%
-                  </p>
-                </div>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Pipeline Leads</p>
-                  <p className="text-xl font-bold text-slate-900 mt-0.5">{dealer.totalLeads.toLocaleString()}</p>
-                </div>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">Credit Limit</p>
-                  <p className="text-xl font-bold text-blue-600 mt-0.5">
-                    ${(dealer.creditLimit || 350000).toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                   <p className="text-[11px] font-semibold text-slate-400 uppercase">Territory Region</p>
-                  <p className="text-base font-bold text-slate-900 mt-0.5">{dealer.location}</p>
+                  <p className="text-base font-bold text-slate-900 mt-0.5">{dealer.city}</p>
                 </div>
               </div>
 
@@ -156,7 +130,7 @@ export const DealerDetailModal: React.FC = () => {
               <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase">Operational Status & Access</h4>
                 <div className="flex items-center gap-3">
-                  {(['Active', 'Pending', 'Inactive', 'Blocked'] as DealerStatus[]).map((st) => (
+                  {(['active', 'inactive'].map((st) => (
                     <button
                       key={st}
                       onClick={() => handleStatusToggle(st)}
@@ -166,39 +140,10 @@ export const DealerDetailModal: React.FC = () => {
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      {st}
+                      {st.charAt(0).toUpperCase() + st.slice(1)}
                     </button>
-                  ))}
+                  )))}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {tab === 'leads' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h4 className="text-xs font-bold text-slate-900 uppercase">Active Leads in Region</h4>
-                <button
-                  onClick={() => setOpenModal('lead_form')}
-                  className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Assign New Lead
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {assignedLeads.map((l) => (
-                  <div
-                    key={l.id}
-                    className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">{l.name} — {l.company}</p>
-                      <p className="text-[11px] text-slate-500">{l.email} · Rep: {l.assignedStaffName}</p>
-                    </div>
-                    <StatusBadge status={l.status} size="sm" />
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -206,27 +151,8 @@ export const DealerDetailModal: React.FC = () => {
           {tab === 'orders' && (
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-slate-900 uppercase">Recent Wholesale Orders</h4>
-              <div className="space-y-2">
-                {[
-                  { id: 'ORD-9481', date: '2026-08-28', items: '24 Units (Fleet Package)', total: '₹3,84,000', status: 'Fulfilled' },
-                  { id: 'ORD-9210', date: '2026-07-15', items: '12 Units (Standard Stock)', total: '₹1,92,000', status: 'Settled' },
-                ].map((ord) => (
-                  <div
-                    key={ord.id}
-                    className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-slate-900">{ord.id}</span> · {ord.items}
-                      <p className="text-[11px] text-slate-400 mt-0.5">Date: {ord.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-slate-900">{ord.total}</p>
-                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        {ord.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="text-xs text-slate-500 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                No orders available in the new backend module yet.
               </div>
             </div>
           )}
@@ -235,9 +161,8 @@ export const DealerDetailModal: React.FC = () => {
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-slate-900 uppercase">Distribution & Compliance Contract</h4>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-700">
-                <p><strong>Master Service Agreement:</strong> Active (Expires Dec 2027)</p>
-                <p><strong>Territory Exclusivity:</strong> 40-mile radius in {dealer.location}</p>
-                <p><strong>Payment Terms:</strong> Net 45 Days with 2% early settlement discount</p>
+                <p><strong>Territory:</strong> {dealer.city}</p>
+                <p><strong>Master Service Agreement:</strong> Active</p>
               </div>
             </div>
           )}
@@ -245,7 +170,7 @@ export const DealerDetailModal: React.FC = () => {
 
         {/* Footer */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <span>Dealer UID: {dealer.id}</span>
+          <span>Dealer ID: {dealer._id}</span>
           <button
             onClick={closeModal}
             className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-800 font-semibold"

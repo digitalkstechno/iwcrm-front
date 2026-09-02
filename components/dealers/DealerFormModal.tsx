@@ -2,54 +2,61 @@
 
 import React, { useState } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { Dealer, DealerStatus } from '@/lib/types';
 import { X, Store, Save } from 'lucide-react';
+import api from '@/lib/axios';
 
 interface DealerFormContentProps {
   modalData: any;
   closeModal: () => void;
-  addDealer: (data: any) => void;
-  updateDealer: (id: string, data: any) => void;
 }
 
 const DealerFormContent: React.FC<DealerFormContentProps> = ({
   modalData,
   closeModal,
-  addDealer,
-  updateDealer,
 }) => {
-  const isEdit = !!modalData?.id;
+  const isEdit = !!modalData?._id || !!modalData?.id;
+  const idToEdit = modalData?._id || modalData?.id;
 
   const [formData, setFormData] = useState({
-    name: modalData?.name || '',
-    company: modalData?.company || modalData?.name || '',
-    contactPerson: modalData?.contactPerson || '',
-    email: modalData?.email || '',
-    phone: modalData?.phone || '',
-    location: modalData?.location || 'Northwest Region',
-    region: modalData?.region || 'Northwest',
-    status: (modalData?.status || 'Active') as DealerStatus,
-    tier: (modalData?.tier || 'Gold') as 'Platinum' | 'Gold' | 'Silver' | 'Bronze',
-    creditLimit: modalData?.creditLimit || 250000,
-    totalLeads: modalData?.totalLeads || 45,
-    conversionRate: modalData?.conversionRate || 62,
+    DealerName: modalData?.DealerName || modalData?.name || '',
+    Phone: modalData?.Phone || modalData?.phone || '',
+    Email: modalData?.Email || modalData?.email || '',
+    city: modalData?.city || modalData?.location || '',
+    status: (modalData?.status || 'active') as string,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.contactPerson.trim()) return;
-
-    const payload = {
-      ...formData,
-      company: formData.company || formData.name,
-    };
-
-    if (isEdit) {
-      updateDealer(modalData.id, payload);
-    } else {
-      addDealer(payload);
+    if (!formData.DealerName.trim() || !formData.Phone.trim() || !formData.city.trim()) {
+      setError('Please fill in all required fields (Name, Phone, City).');
+      return;
     }
-    closeModal();
+
+    const rawPhone = formData.Phone.replace(/^\+91\s*/, '');
+    if (rawPhone.length !== 10) {
+      setError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      if (isEdit) {
+        await api.put(`/v1/api/dealer/${idToEdit}`, formData);
+      } else {
+        await api.post('/v1/api/dealer/create', formData);
+      }
+      closeModal(); // fetch is handled by useEffect in DealersView when modal closes
+    } catch (err: any) {
+      console.error('Failed to save dealer:', err);
+      setError(err.response?.data?.message || err.message || 'An error occurred while saving.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -76,15 +83,21 @@ const DealerFormContent: React.FC<DealerFormContentProps> = ({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-medium">
+            {error}
+          </div>
+        )}
+        
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Dealership / Company Name *
+            Dealer Name *
           </label>
           <input
             type="text"
             required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            value={formData.DealerName}
+            onChange={(e) => setFormData({ ...formData, DealerName: e.target.value })}
             placeholder="e.g. Apex Auto Holdings"
             className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
           />
@@ -93,27 +106,33 @@ const DealerFormContent: React.FC<DealerFormContentProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Primary Contact Person *
+              Phone *
             </label>
-            <input
-              type="text"
-              required
-              value={formData.contactPerson}
-              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-              placeholder="e.g. Marcus Vance"
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
+            <div className="flex items-center w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus-within:border-blue-500 overflow-hidden">
+              <span className="text-slate-500 mr-2 font-medium">+91</span>
+              <input
+                type="text"
+                required
+                maxLength={10}
+                value={formData.Phone.replace(/^\+91\s*/, '')}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData({ ...formData, Phone: val ? `+91 ${val}` : '' });
+                }}
+                placeholder="9876543210"
+                className="w-full text-slate-800 bg-transparent focus:outline-hidden"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Contact Email *
+              Email
             </label>
             <input
               type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              value={formData.Email}
+              onChange={(e) => setFormData({ ...formData, Email: e.target.value })}
               placeholder="contact@dealership.com"
               className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
             />
@@ -122,77 +141,27 @@ const DealerFormContent: React.FC<DealerFormContentProps> = ({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">City *</label>
             <input
               type="text"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+1 (555) 000-0000"
+              required
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder="e.g. Mumbai"
               className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Territory / Location</label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="e.g. Northwest"
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Tier</label>
-            <select
-              value={formData.tier}
-              onChange={(e) => setFormData({ ...formData, tier: e.target.value as any })}
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            >
-              <option value="Platinum">Platinum</option>
-              <option value="Gold">Gold</option>
-              <option value="Silver">Silver</option>
-              <option value="Bronze">Bronze</option>
-            </select>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as DealerStatus })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
             >
-              <option value="Active">Active</option>
-              <option value="Pending">Pending</option>
-              <option value="Inactive">Inactive</option>
-              <option value="Blocked">Blocked</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Credit Limit (₹)</label>
-            <input
-              type="number"
-              value={formData.creditLimit}
-              onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Avg Conversion Rate (%)</label>
-            <input
-              type="number"
-              value={formData.conversionRate}
-              onChange={(e) => setFormData({ ...formData, conversionRate: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-blue-500"
-            />
           </div>
         </div>
 
@@ -206,10 +175,11 @@ const DealerFormContent: React.FC<DealerFormContentProps> = ({
           </button>
           <button
             type="submit"
-            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs flex items-center gap-1.5"
+            disabled={isLoading}
+            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs flex items-center gap-1.5"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{isEdit ? 'Save Changes' : 'Register Dealer'}</span>
+            <span>{isLoading ? 'Saving...' : (isEdit ? 'Save Changes' : 'Register Dealer')}</span>
           </button>
         </div>
       </form>
@@ -218,7 +188,7 @@ const DealerFormContent: React.FC<DealerFormContentProps> = ({
 };
 
 export const DealerFormModal: React.FC = () => {
-  const { openModal, modalData, closeModal, addDealer, updateDealer } = useCRM();
+  const { openModal, modalData, closeModal } = useCRM();
 
   if (openModal !== 'dealer_form') return null;
 
@@ -229,11 +199,9 @@ export const DealerFormModal: React.FC = () => {
       onClick={closeModal}
     >
       <DealerFormContent
-        key={modalData?.id || 'new-dealer'}
+        key={modalData?._id || 'new-dealer'}
         modalData={modalData}
         closeModal={closeModal}
-        addDealer={addDealer}
-        updateDealer={updateDealer}
       />
     </div>
   );

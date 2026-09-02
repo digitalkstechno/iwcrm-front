@@ -1,69 +1,119 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCRM } from '@/lib/crm-context';
-import { Dealer, DealerStatus } from '@/lib/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { CommonTable, Column } from '@/components/ui/CommonTable';
-import {
-  Download,
-  Plus,
-  MapPin,
-  Edit2,
-  Trash2,
-  ExternalLink,
-} from 'lucide-react';
+import { Download, Plus, MapPin, Edit2, Trash2, ExternalLink } from 'lucide-react';
+import api from '@/lib/axios';
+
+export interface BackendDealer {
+  _id: string;
+  DealerName: string;
+  Phone: string;
+  Email: string;
+  city: string;
+  status: string;
+  createdAt?: string;
+}
 
 export const DealersView: React.FC = () => {
-  const { dealers, setOpenModal, deleteDealer, showToast, showConfirmDialog } = useCRM();
+  const { setOpenModal, openModal, showToast, showConfirmDialog } = useCRM();
 
+  const [dealerList, setDealerList] = useState<BackendDealer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [regionFilter, setRegionFilter] = useState<string>('All');
   const [selectedDealerIds, setSelectedDealerIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Filtered Dealers
-  const filteredDealers = useMemo(() => {
-    return dealers.filter((d) => {
-      const matchSearch =
-        searchTerm === '' ||
-        d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.dealerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.location.toLowerCase().includes(searchTerm.toLowerCase());
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-      const matchStatus = statusFilter === 'All' || d.status === statusFilter;
-      const matchRegion =
-        regionFilter === 'All' ||
-        d.location.toLowerCase().includes(regionFilter.toLowerCase());
+  const fetchDealerData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/v1/api/dealer', {
+        params: {
+          page: currentPage,
+          limit: itemsPerPage,
+          search: debouncedSearch,
+        },
+      });
+      
+      let dealerArray = [];
+      let total = 0;
+      let pages = 1;
 
-      return matchSearch && matchStatus && matchRegion;
-    });
-  }, [dealers, searchTerm, statusFilter, regionFilter]);
+      if (Array.isArray(res)) {
+        dealerArray = res;
+        total = res.length;
+      } else if (res && res.data && Array.isArray(res.data)) {
+        dealerArray = res.data;
+        total = (res as any).pagination?.totalRecords || dealerArray.length;
+        pages = (res as any).pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
+      } else if (res && Array.isArray(res.data?.data)) {
+        dealerArray = res.data.data;
+        total = res.data.pagination?.totalRecords || dealerArray.length;
+        pages = res.data.pagination?.totalPages || Math.ceil(total / itemsPerPage) || 1;
+      }
 
-  const displayedDealers = filteredDealers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+      if (statusFilter !== 'All') {
+        dealerArray = dealerArray.filter((d: BackendDealer) => d.status.toLowerCase() === statusFilter.toLowerCase());
+      }
+      
+      setDealerList(dealerArray);
+      setTotalPages(pages);
+      setTotalRecords(total);
+    } catch (err) {
+      console.error('Failed to fetch dealers:', err);
+      showToast({ type: 'error', title: 'Error', message: 'Failed to fetch dealer data' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const totalResults = 124 + (filteredDealers.length - 6);
-  const totalPages = Math.max(1, Math.ceil(filteredDealers.length / itemsPerPage));
+  useEffect(() => {
+    if (!openModal) {
+      fetchDealerData();
+    }
+  }, [currentPage, debouncedSearch, statusFilter, itemsPerPage, openModal]);
+
+  const handleDelete = async (id: string, name: string) => {
+    showConfirmDialog(
+      'Delete Dealer',
+      `Are you sure you want to delete dealer ${name}?`,
+      async () => {
+        try {
+          await api.delete(`/v1/api/dealer/${id}`);
+          showToast({ type: 'success', title: 'Deleted', message: `${name} has been removed.` });
+          fetchDealerData();
+        } catch (err: any) {
+          console.error('Failed to delete dealer:', err);
+          showToast({ type: 'error', title: 'Error', message: err.response?.data?.message || 'Failed to delete dealer' });
+        }
+      }
+    );
+  };
 
   const handleExportCSV = () => {
-    const headers = ['Dealer Code', 'Name', 'Contact Person', 'Email', 'Phone', 'Location', 'Status', 'Tier', 'Total Leads', 'Conversion Rate %'];
-    const rows = filteredDealers.map((d) => [
-      d.dealerCode,
-      `"${d.name}"`,
-      `"${d.contactPerson}"`,
-      d.email,
-      d.phone,
-      `"${d.location}"`,
+    const headers = ['Name', 'Email', 'Phone', 'City', 'Status'];
+    const rows = dealerList.map((d) => [
+      `"${d.DealerName}"`,
+      d.Email,
+      d.Phone,
+      `"${d.city}"`,
       d.status,
-      d.tier || 'Gold',
-      d.totalLeads,
-      d.conversionRate,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -75,15 +125,15 @@ export const DealersView: React.FC = () => {
     link.click();
     document.body.removeChild(link);
 
-    showToast({ type: 'info', title: 'Export Complete', message: `Exported ${filteredDealers.length} dealers to CSV.` });
+    showToast({ type: 'info', title: 'Export Complete', message: `Exported ${dealerList.length} dealers to CSV.` });
   };
 
-  const columns: Column<Dealer>[] = [
+  const columns: Column<BackendDealer>[] = [
     {
       key: 'name',
       header: 'Dealer Name',
       render: (dealer) => {
-        const initials = dealer.name.substring(0, 2).toUpperCase();
+        const initials = dealer.DealerName ? dealer.DealerName.substring(0, 2).toUpperCase() : 'NA';
         return (
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
@@ -91,10 +141,7 @@ export const DealersView: React.FC = () => {
             </div>
             <div>
               <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
-                {dealer.name}
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5 leading-none">
-                #{dealer.dealerCode} · {dealer.tier || 'Gold Tier'}
+                {dealer.DealerName}
               </p>
             </div>
           </div>
@@ -102,62 +149,35 @@ export const DealersView: React.FC = () => {
       },
     },
     {
-      key: 'contactPerson',
-      header: 'Contact Person',
+      key: 'contact',
+      header: 'Contact',
       render: (dealer) => (
         <>
-          <p className="font-medium text-slate-800 leading-tight">{dealer.contactPerson}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{dealer.email}</p>
+          <p className="font-medium text-slate-800 leading-tight">{dealer.Phone}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{dealer.Email}</p>
         </>
       ),
     },
     {
       key: 'location',
-      header: 'Region / Territory',
+      header: 'City',
       render: (dealer) => (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600">
           <MapPin className="w-3.5 h-3.5 text-slate-400" />
-          {dealer.location}
+          {dealer.city}
         </span>
-      ),
-    },
-    {
-      key: 'totalLeads',
-      header: 'Total Leads',
-      render: (dealer) => (
-        <div className="text-right text-xs font-bold text-slate-800">
-          {dealer.totalLeads.toLocaleString()}
-        </div>
-      ),
-    },
-    {
-      key: 'conversionRate',
-      header: 'Conv. Rate',
-      render: (dealer) => (
-        <div className="text-right">
-          <span className="inline-block text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-            {dealer.conversionRate}%
-          </span>
-        </div>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (dealer) => <StatusBadge status={dealer.status} size="sm" />,
+      render: (dealer) => <StatusBadge status={dealer.status.charAt(0).toUpperCase() + dealer.status.slice(1)} size="sm" />,
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (dealer) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => setOpenModal('dealer_detail', dealer)}
-            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg"
-            title="View Dealer Details"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </button>
           <button
             onClick={() => setOpenModal('dealer_form', dealer)}
             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
@@ -166,11 +186,7 @@ export const DealersView: React.FC = () => {
             <Edit2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => {
-              showConfirmDialog('Delete Dealer', `Delete dealer ${dealer.name}?`, () => {
-                deleteDealer(dealer.id);
-              });
-            }}
+            onClick={() => handleDelete(dealer._id, dealer.DealerName)}
             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
             title="Delete Dealer"
           >
@@ -189,23 +205,8 @@ export const DealersView: React.FC = () => {
         className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden"
       >
         <option value="All">All Statuses</option>
-        <option value="Active">Active</option>
-        <option value="Inactive">Inactive</option>
-        <option value="Pending">Pending</option>
-        <option value="Blocked">Blocked</option>
-      </select>
-
-      <select
-        value={regionFilter}
-        onChange={(e) => setRegionFilter(e.target.value)}
-        className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden"
-      >
-        <option value="All">All Regions</option>
-        <option value="Northwest">Northwest</option>
-        <option value="South">South</option>
-        <option value="East">East Coast</option>
-        <option value="Midwest">Midwest</option>
-        <option value="West">West Coast</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
       </select>
 
       <button
@@ -243,48 +244,25 @@ export const DealersView: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Network</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">{totalResults}</p>
-          <span className="text-[11px] text-emerald-600 font-medium">95.2% Operational</span>
+          <p className="text-xl font-bold text-slate-900 mt-0.5">{totalRecords}</p>
         </div>
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-semibold text-slate-400 uppercase">Active Dealerships</p>
           <p className="text-xl font-bold text-emerald-600 mt-0.5">
-            {118 + (dealers.filter((d) => d.status === 'Active').length - 4)}
+            {dealerList.filter((d) => d.status === 'active').length}
           </p>
-          <span className="text-[11px] text-slate-400 font-normal">Active agreements</span>
-        </div>
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Avg Conversion Rate</p>
-          <p className="text-xl font-bold text-slate-900 mt-0.5">61.4%</p>
-          <span className="text-[11px] text-emerald-600 font-medium">+3.8% MoM</span>
-        </div>
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Credit Allocated</p>
-          <p className="text-xl font-bold text-blue-600 mt-0.5">₹18.5M</p>
-          <span className="text-[11px] text-slate-400 font-normal">Active credit line</span>
         </div>
       </div>
 
       <CommonTable
-        data={displayedDealers}
+        data={dealerList}
         columns={columns}
-        keyExtractor={(d) => d.id}
+        keyExtractor={(d) => d._id}
         searchTerm={searchTerm}
         onSearchChange={(term) => {
           setSearchTerm(term);
           setCurrentPage(1);
         }}
-        selectedIds={selectedDealerIds}
-        onSelectAll={(checked) => {
-          if (checked) setSelectedDealerIds(displayedDealers.map((d) => d.id));
-          else setSelectedDealerIds([]);
-        }}
-        onToggleSelect={(id) => {
-          setSelectedDealerIds((prev) =>
-            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-          );
-        }}
-        onRowClick={(dealer) => setOpenModal('dealer_detail', dealer)}
         actions={actions}
         pagination={{
           currentPage,
