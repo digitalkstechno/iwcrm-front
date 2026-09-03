@@ -18,10 +18,12 @@ export default function SettingsPage() {
     metaChannelToken: '',
     metaVerifyToken: 'kapil_crm_meta_token', // Default token matching backend
     botKeywords: 'hi, hello, hey', // Default keywords
+    botFlowId: '',
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [keywordInput, setKeywordInput] = useState('');
+  const [isGeneratingFlow, setIsGeneratingFlow] = useState(false);
 
   const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -74,6 +76,22 @@ export default function SettingsPage() {
       showToast({ type: 'error', title: 'Error', message: 'Failed to save configuration.' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleGenerateFlow = async () => {
+    setIsGeneratingFlow(true);
+    try {
+      const res: any = await api.post('/v1/api/settings/generate-flow');
+      if (res?.data?.data?.flowId) {
+        setFormData(prev => ({ ...prev, botFlowId: res.data.data.flowId }));
+        showToast({ type: 'success', title: 'Flow Generated', message: 'Lead Form Flow has been created and published successfully!' });
+      }
+    } catch (error: any) {
+      console.error('Failed to generate flow:', error);
+      showToast({ type: 'error', title: 'Error', message: error?.response?.data?.message || 'Failed to generate flow. Ensure WABA ID and Token are saved first.' });
+    } finally {
+      setIsGeneratingFlow(false);
     }
   };
 
@@ -209,6 +227,34 @@ export default function SettingsPage() {
                           />
                         </div>
                         <p className="text-xs text-slate-500 mt-1 pl-1">Keywords that will trigger the bot's welcome message. Press Enter to add.</p>
+                      </div>
+
+                      <div className="md:col-span-2 mt-4 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-800">WhatsApp Lead Form (Flow)</h4>
+                            <p className="text-xs text-slate-500">Generate a native WhatsApp form for lead collection. The generated Flow ID will be used automatically.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleGenerateFlow}
+                            disabled={isGeneratingFlow || !formData.metaWabaId}
+                            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGeneratingFlow ? (
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
+                            {isGeneratingFlow ? 'Generating...' : 'Auto-Generate Form'}
+                          </button>
+                        </div>
+                        {formData.botFlowId && (
+                          <div className="mt-3">
+                            {renderInput('Generated Flow ID', Key, '', 'botFlowId', 'text')}
+                            <p className="text-xs text-green-600 mt-1 pl-1 font-medium">Flow is active and will be sent to users.</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
