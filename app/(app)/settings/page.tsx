@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Settings, MessageSquare, Database, ShoppingCart, FolderUp, Calendar, Save, Globe, Key, Phone, CheckCircle2, Link as LinkIcon, Copy } from 'lucide-react';
+import { Settings, MessageSquare, Database, ShoppingCart, FolderUp, Calendar, Save, Globe, Key, Phone, CheckCircle2, Link as LinkIcon, Copy, X } from 'lucide-react';
 import { useCRM } from '@/lib/crm-context';
 import api from '@/lib/axios';
 
@@ -17,9 +17,31 @@ export default function SettingsPage() {
     metaWabaId: '',
     metaChannelToken: '',
     metaVerifyToken: 'kapil_crm_meta_token', // Default token matching backend
+    botKeywords: 'hi, hello, hey', // Default keywords
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [keywordInput, setKeywordInput] = useState('');
+
+  const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const newKeyword = keywordInput.trim();
+      if (newKeyword) {
+        const currentKeywords = formData.botKeywords ? formData.botKeywords.split(',').map(k => k.trim()) : [];
+        if (!currentKeywords.includes(newKeyword)) {
+          setFormData(prev => ({ ...prev, botKeywords: [...currentKeywords, newKeyword].join(', ') }));
+        }
+        setKeywordInput('');
+      }
+    }
+  };
+
+  const removeKeyword = (keywordToRemove: string) => {
+    const currentKeywords = formData.botKeywords.split(',').map(k => k.trim());
+    const newKeywords = currentKeywords.filter(k => k !== keywordToRemove);
+    setFormData(prev => ({ ...prev, botKeywords: newKeywords.join(', ') }));
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -156,6 +178,37 @@ export default function SettingsPage() {
                       {renderInput('WABA ID', Database, 'Enter WhatsApp Business Account ID', 'metaWabaId')}
                       <div className="md:col-span-2">
                         {renderInput('Channel Token', Key, 'Enter channel specific token', 'metaChannelToken', 'textarea')}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Bot Start Keywords</label>
+                        <div className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all shadow-xs hover:border-slate-300 min-h-[46px] flex flex-wrap gap-2 items-center">
+                          <div className="flex items-center pl-2 pointer-events-none">
+                            <MessageSquare className="w-5 h-5 text-slate-400" />
+                          </div>
+                          
+                          {formData.botKeywords.split(',').map(k => k.trim()).filter(Boolean).map((keyword, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-sm font-medium">
+                              {keyword}
+                              <button
+                                type="button"
+                                onClick={() => removeKeyword(keyword)}
+                                className="text-blue-400 hover:text-blue-900 transition-colors focus:outline-none"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                          
+                          <input
+                            type="text"
+                            value={keywordInput}
+                            onChange={(e) => setKeywordInput(e.target.value)}
+                            onKeyDown={handleKeywordKeyDown}
+                            className="flex-1 bg-transparent border-none focus:outline-none text-sm min-w-[120px] px-2 py-1 placeholder-slate-400"
+                            placeholder={formData.botKeywords ? "Add more..." : "Type and press Enter"}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 pl-1">Keywords that will trigger the bot's welcome message. Press Enter to add.</p>
                       </div>
                     </div>
 
