@@ -18,6 +18,7 @@ export interface BackendLead {
   city: string;
   staff?: { _id: string; fullName: string; email: string };
   dealer?: { _id: string; DealerName: string; Phone: string };
+  role?: string;
   createdAt?: string;
 }
 
@@ -141,8 +142,13 @@ export const LeadsView: React.FC = () => {
       header: 'Name & Company',
       render: (lead) => (
         <>
-          <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
+          <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight flex items-center gap-2">
             {lead.contactName}
+            {lead.role === 'architect' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700">
+                Architect
+              </span>
+            )}
           </p>
           <p className="text-xs text-slate-500 mt-0.5 leading-none">
             {lead.companyName}
