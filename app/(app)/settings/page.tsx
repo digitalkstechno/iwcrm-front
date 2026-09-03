@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, MessageSquare, Database, ShoppingCart, FolderUp, Calendar, Save, Globe, Key, Phone, CheckCircle2, Link as LinkIcon, Copy } from 'lucide-react';
 import { useCRM } from '@/lib/crm-context';
-import { encryptData, decryptData } from '@/lib/encryption';
 import api from '@/lib/axios';
 
 export default function SettingsPage() {
@@ -30,11 +29,8 @@ export default function SettingsPage() {
     try {
       setIsLoading(true);
       const res: any = await api.get('/v1/api/settings?configType=meta_whatsapp');
-      if (res?.data?.encryptedData) {
-        const decryptedConfig = decryptData(res.data.encryptedData);
-        if (decryptedConfig) {
-          setFormData(prev => ({ ...prev, ...decryptedConfig }));
-        }
+      if (res?.data) {
+        setFormData(prev => ({ ...prev, ...res.data }));
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
@@ -46,12 +42,11 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const encryptedData = encryptData(formData);
       await api.post('/v1/api/settings', {
         configType: 'meta_whatsapp',
-        encryptedData
+        ...formData
       });
-      showToast({ type: 'success', title: 'Configuration Saved', message: 'Your API configurations have been safely encrypted and saved.' });
+      showToast({ type: 'success', title: 'Configuration Saved', message: 'Your API configurations have been saved successfully.' });
     } catch (error) {
       console.error('Failed to save settings:', error);
       showToast({ type: 'error', title: 'Error', message: 'Failed to save configuration.' });
@@ -145,7 +140,7 @@ export default function SettingsPage() {
             {isLoading ? (
               <div className="h-full flex flex-col items-center justify-center min-h-[300px] text-slate-400">
                 <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4" />
-                <p className="text-sm font-medium">Decrypting Config...</p>
+                <p className="text-sm font-medium">Loading Config...</p>
               </div>
             ) : (
               <>
