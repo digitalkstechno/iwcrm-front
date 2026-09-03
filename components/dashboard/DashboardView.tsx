@@ -45,9 +45,9 @@ export const DashboardView: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await api.get('/v1/api/dashboard');
-        if (res.data?.data) {
-          setStats(res.data.data);
+        const res: any = await api.get('/v1/api/dashboard');
+        if (res && res.data) {
+          setStats(res.data);
         }
       } catch (err) {
         console.error('Failed to fetch dashboard stats', err);
@@ -232,7 +232,6 @@ export const DashboardView: React.FC = () => {
                   <th className="pb-2.5 font-semibold">Dealer Name</th>
                   <th className="pb-2.5 font-semibold">City</th>
                   <th className="pb-2.5 font-semibold text-right">Total Leads</th>
-                  <th className="pb-2.5 font-semibold text-right">Conv. Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -248,11 +247,6 @@ export const DashboardView: React.FC = () => {
                     <td className="py-3 text-slate-500 text-xs">{d.region}</td>
                     <td className="py-3 text-slate-700 text-right font-medium text-xs">
                       {d.leads.toLocaleString()}
-                    </td>
-                    <td className="py-3 text-right">
-                      <span className="inline-block text-xs font-semibold text-emerald-600">
-                        {d.convRate}%
-                      </span>
                     </td>
                   </tr>
                 ))}
